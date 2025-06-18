@@ -1,0 +1,199 @@
+#include <Servo.h>
+
+// Motor A - Left
+#define enA 11
+#define in1 4
+#define in2 12
+
+// Motor B - Right
+#define enB 5
+#define in3 6
+#define in4 7
+
+// IR Sensors
+#define L_S 2
+#define R_S 3
+
+// Ultrasonic
+#define trigPin 8
+#define echoPin 9
+
+// Servo
+#define servoPin 10
+Servo myServo;
+
+// PID Constants
+float Kp = 25.0;
+float Ki = 0.5;
+float Kd = 12.0;
+
+int lastError = 0;
+int integral = 0;
+
+// Speed Settings
+int baseSpeed = 80;
+int maxSpeed = 150;
+
+// Obstacle Threshold
+int obstacleThreshold = 15; // cm
+
+// Servo Angles
+int centerPos = 90;
+int rightPos = 160;
+int leftPos = 20;
+
+void setup() {
+  Serial.begin(9600);
+
+  // Motor Pins
+  pinMode(enA, OUTPUT);
+  pinMode(enB, OUTPUT);
+  pinMode(in1, OUTPUT);
+  pinMode(in2, OUTPUT);
+  pinMode(in3, OUTPUT);
+  pinMode(in4, OUTPUT);
+
+  // Sensor Pins
+  pinMode(L_S, INPUT);
+  pinMode(R_S, INPUT);
+
+  // Ultrasonic Pins
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+
+  // Servo Initialization
+  myServo.attach(servoPin);
+  myServo.write(centerPos);
+
+  stopMotors();
+}
+
+void loop() {
+  int distance = getDistance();
+  Serial.print("Distance: ");
+  Serial.println(distance);
+
+  if (distance > 0 && distance < obstacleThreshold) {
+    avoidObstacle();
+  } else {
+    followLinePID();
+  }
+
+  delay(10);
+}
+
+void followLinePID() {
+  int leftIR = digitalRead(L_S);
+  int rightIR = digitalRead(R_S);
+
+  // Line is black, so LOW = detected
+  int error = (rightIR == LOW ? 1 : 0) - (leftIR == LOW ? 1 : 0);
+
+  integral += error;
+  int derivative = error - lastError;
+
+  int correction = Kp * error + Ki * integral + Kd * derivative;
+
+  int leftSpeed = baseSpeed - correction;
+  int rightSpeed = baseSpeed + correction;
+
+  leftSpeed = constrain(leftSpeed, 0, maxSpeed);
+  rightSpeed = constrain(rightSpeed, 0, maxSpeed);
+
+  analogWrite(enA, leftSpeed);
+  analogWrite(enB, rightSpeed);
+
+  digitalWrite(in1, HIGH);
+  digitalWrite(in2, LOW);
+  digitalWrite(in3, HIGH);
+  digitalWrite(in4, LOW);
+
+  lastError = error;
+}
+
+int getDistance() {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  long duration = pulseIn(echoPin, HIGH, 20000); // timeout: 20ms
+  return duration * 0.034 / 2;
+}
+
+void avoidObstacle() {
+  stopMotors();
+  delay(200);
+
+  reverseMotors();
+  delay(300);
+
+  turnRight();
+  delay(400);
+
+  int scanRight = scanDirection(rightPos);
+  delay(300);
+  int scanLeft = scanDirection(leftPos);
+  delay(300);
+
+  if (scanLeft > scanRight) {
+    turnLeft();
+    delay(400);
+  } else {
+    turnRight();
+    delay(400);
+  }
+
+  myServo.write(centerPos);
+
+  // Move forward until line is reacquired
+  while (digitalRead(L_S) == HIGH && digitalRead(R_S) == HIGH) {
+    analogWrite(enA, baseSpeed);
+    analogWrite(enB, baseSpeed);
+    digitalWrite(in1, HIGH);
+    digitalWrite(in2, LOW);
+    digitalWrite(in3, HIGH);
+    digitalWrite(in4, LOW);
+  }
+
+  stopMotors();
+  delay(100);
+}
+
+int scanDirection(int angle) {
+  myServo.write(angle);
+  delay(500);
+  return getDistance();
+}
+
+void stopMotors() {
+  analogWrite(enA, 0);
+  analogWrite(enB, 0);
+}
+
+void reverseMotors() {
+  analogWrite(enA, baseSpeed);
+  analogWrite(enB, baseSpeed);
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, HIGH);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, HIGH);
+}
+
+void turnRight() {
+  analogWrite(enA, baseSpeed);
+  analogWrite(enB, baseSpeed);
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, HIGH);
+  digitalWrite(in3, HIGH);
+  digitalWrite(in4, LOW);
+}
+
+void turnLeft() {
+  analogWrite(enA, baseSpeed);
+  analogWrite(enB, baseSpeed);
+  digitalWrite(in1, HIGH);
+  digitalWrite(in2, LOW);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, HIGH);
+}
