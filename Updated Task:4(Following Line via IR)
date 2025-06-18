@@ -1,0 +1,70 @@
+// Motor A - Left
+#define enA 11
+#define in1 4
+#define in2 12
+
+// Motor B - Right
+#define enB 5
+#define in3 6
+#define in4 7
+
+// IR Sensors
+#define L_S 2  // Left IR sensor
+#define R_S 3  // Right IR sensor
+
+void setup() {
+  // IR sensor pins
+  pinMode(L_S, INPUT);
+  pinMode(R_S, INPUT);
+
+  // Motor pins
+  pinMode(enA, OUTPUT);
+  pinMode(in1, OUTPUT);
+  pinMode(in2, OUTPUT);
+
+  pinMode(enB, OUTPUT);
+  pinMode(in3, OUTPUT);
+  pinMode(in4, OUTPUT);
+
+  // Start both motors at medium speed
+  analogWrite(enA, 90);
+  analogWrite(enB, 90);
+}
+
+void loop() {
+  int leftIR = digitalRead(L_S);   // 0 = black, 1 = white
+  int rightIR = digitalRead(R_S);  // 0 = black, 1 = white
+
+  if (leftIR == 0 && rightIR == 0) {
+    forward();   // Both sensors see black line
+  } 
+  else if (leftIR == 0 && rightIR == 1) {
+    turnLeft();  // Left sees black → turn left
+  } 
+  else if (leftIR == 1 && rightIR == 0) {
+    turnRight(); // Right sees black → turn right
+  } 
+  else {
+    Stop();      // Lost line — stop
+  }
+}
+
+void forward() {
+  digitalWrite(in1, HIGH); digitalWrite(in2, LOW);  // Left forward
+  digitalWrite(in3, HIGH); digitalWrite(in4, LOW);  // Right forward
+}
+
+void turnLeft() {
+  digitalWrite(in1, LOW);  digitalWrite(in2, HIGH); // Left reverse
+  digitalWrite(in3, HIGH); digitalWrite(in4, LOW);  // Right forward
+}
+
+void turnRight() {
+  digitalWrite(in1, HIGH); digitalWrite(in2, LOW);  // Left forward
+  digitalWrite(in3, LOW);  digitalWrite(in4, HIGH); // Right reverse
+}
+
+void Stop() {
+  digitalWrite(in1, LOW); digitalWrite(in2, LOW);   // Left stop
+  digitalWrite(in3, LOW); digitalWrite(in4, LOW);   // Right stop
+}
