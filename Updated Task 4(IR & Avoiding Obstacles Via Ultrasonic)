@@ -1,0 +1,103 @@
+#include <Servo.h>
+
+// Motor A - Left
+#define enA 11
+#define in1 4
+#define in2 12
+
+// Motor B - Right
+#define enB 5
+#define in3 6
+#define in4 7
+
+// IR Sensors
+#define L_S 2
+#define R_S 3
+
+// Ultrasonic
+#define trigPin 8
+#define echoPin 9
+
+// Servo
+#define servoPin 10
+Servo myServo;
+
+void setup() {
+  // Motor pins
+  pinMode(enA, OUTPUT); pinMode(in1, OUTPUT); pinMode(in2, OUTPUT);
+  pinMode(enB, OUTPUT); pinMode(in3, OUTPUT); pinMode(in4, OUTPUT);
+  analogWrite(enA, 100);  // Speed
+  analogWrite(enB, 100);
+
+  // IR sensors
+  pinMode(L_S, INPUT);
+  pinMode(R_S, INPUT);
+
+  // Ultrasonic pins
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+
+  // Servo
+  myServo.attach(servoPin);
+  myServo.write(90); // forward
+
+  Serial.begin(9600);
+}
+
+void loop() {
+  int distance = getDistance();
+  Serial.println(distance);
+
+  if (distance > 0 && distance < 15) {
+    Stop();
+    return;
+  }
+
+  int leftIR = digitalRead(L_S);
+  int rightIR = digitalRead(R_S);
+
+  if (leftIR == 0 && rightIR == 0) {
+    forward();
+  } else if (leftIR == 0 && rightIR == 1) {
+    turnLeft();
+  } else if (leftIR == 1 && rightIR == 0) {
+    turnRight();
+  } else {
+    Stop();
+  }
+
+  delay(50);
+}
+
+int getDistance() {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  long duration = pulseIn(echoPin, HIGH, 20000);
+  if (duration == 0) return -1;
+  return duration * 0.034 / 2;
+}
+
+// Motor movement
+void forward() {
+  digitalWrite(in1, HIGH); digitalWrite(in2, LOW);
+  digitalWrite(in3, HIGH); digitalWrite(in4, LOW);
+}
+
+void turnLeft() {
+  digitalWrite(in1, LOW); digitalWrite(in2, HIGH);
+  digitalWrite(in3, HIGH); digitalWrite(in4, LOW);
+}
+
+void turnRight() {
+  digitalWrite(in1, HIGH); digitalWrite(in2, LOW);
+  digitalWrite(in3, LOW); digitalWrite(in4, HIGH);
+}
+
+void Stop() {
+  digitalWrite(in1, LOW); digitalWrite(in2, LOW);
+  digitalWrite(in3, LOW); digitalWrite(in4, LOW);
+}
