@@ -1,0 +1,377 @@
+/*
+ * Robotic Car - Line Following with Obstacle Avoidance
+ * Features: Line following, ultrasonic obstacle detection, servo scanning
+ * Hardware: Arduino Uno, L298N motor driver, HC-SR04, IR sensors, servo
+ */
+
+#include <Servo.h>
+
+// === Motor Control Pins ===
+// Motor A - Left Motor
+#define leftMotorEnable 11    // PWM pin for left motor speed
+#define leftMotorPin1 4       // Left motor direction control 1
+#define leftMotorPin2 12      // Left motor direction control 2
+
+// Motor B - Right Motor  
+#define rightMotorEnable 5    // PWM pin for right motor speed
+#define rightMotorPin1 6      // Right motor direction control 1
+#define rightMotorPin2 7      // Right motor direction control 2
+
+// === Sensor Pins ===
+#define leftIRSensor 2        // Left IR line sensor
+#define rightIRSensor 3       // Right IR line sensor
+#define ultrasonicTrig 8      // Ultrasonic sensor trigger pin
+#define ultrasonicEcho 9      // Ultrasonic sensor echo pin
+
+// === Servo Pin ===
+#define servoPin 10           // Servo motor for scanning
+Servo scanServo;
+
+// === Speed Settings ===
+const int DEFAULT_SPEED = 100;      // Normal driving speed
+const int TURN_SPEED = 80;          // Speed during turns
+const int OBSTACLE_SPEED = 70;      // Speed during obstacle avoidance
+const int SCAN_SPEED = 60;          // Speed while scanning
+
+// === Distance Thresholds ===
+const int OBSTACLE_THRESHOLD = 15;   // Stop if obstacle closer than 15cm
+const int SAFE_DISTANCE = 25;       // Consider path safe if >25cm
+const int MAX_DISTANCE = 200;       // Maximum valid sensor reading
+
+// === Timing Constants ===
+const int SCAN_DELAY = 300;         // Delay between servo positions
+const int TURN_DURATION = 300;      // Duration for turning movements
+const int BACKUP_DURATION = 400;    // Duration for backing up
+
+// === Global Variables ===
+int currentDistance = 0;
+bool obstacleMode = false;
+int leftIRValue = 0;
+int rightIRValue = 0;
+
+void setup() {
+  // Initialize serial communication
+  Serial.begin(9600);
+  Serial.println("Robotic Car Starting...");
+  
+  // Configure motor pins
+  pinMode(leftMotorEnable, OUTPUT);
+  pinMode(leftMotorPin1, OUTPUT);
+  pinMode(leftMotorPin2, OUTPUT);
+  pinMode(rightMotorEnable, OUTPUT);
+  pinMode(rightMotorPin1, OUTPUT);
+  pinMode(rightMotorPin2, OUTPUT);
+  
+  // Set initial motor speeds
+  analogWrite(leftMotorEnable, DEFAULT_SPEED);
+  analogWrite(rightMotorEnable, DEFAULT_SPEED);
+  
+  // Configure sensor pins
+  pinMode(leftIRSensor, INPUT);
+  pinMode(rightIRSensor, INPUT);
+  pinMode(ultrasonicTrig, OUTPUT);
+  pinMode(ultrasonicEcho, INPUT);
+  
+  // Initialize servo
+  scanServo.attach(servoPin);
+  scanServo.write(90);  // Center position (forward)
+  delay(1000);
+  
+  Serial.println("Setup complete. Starting main loop...");
+}
+
+void loop() {
+  // Read all sensors
+  readSensors();
+  
+  // Print sensor values for debugging
+  printSensorValues();
+  
+  // Check for obstacles first
+  if (currentDistance > 0 && currentDistance < OBSTACLE_THRESHOLD) {
+    handleObstacleAvoidance();
+    return;
+  }
+  
+  // Normal line following behavior
+  handleLineFollowing();
+  
+  // Small delay for stability
+  delay(50);
+}
+
+/**
+ * Read all sensor values
+ */
+void readSensors() {
+  currentDistance = readUltrasonicDistance();
+  leftIRValue = digitalRead(leftIRSensor);
+  rightIRValue = digitalRead(rightIRSensor);
+}
+
+/**
+ * Read distance from ultrasonic sensor
+ * @return Distance in centimeters, -1 if invalid
+ */
+int readUltrasonicDistance() {
+  // Send trigger pulse
+  digitalWrite(ultrasonicTrig, LOW);
+  delayMicroseconds(2);
+  digitalWrite(ultrasonicTrig, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(ultrasonicTrig, LOW);
+  
+  // Read echo pulse
+  long duration = pulseIn(ultrasonicEcho, HIGH, 20000);  // 20ms timeout
+  
+  if (duration == 0) {
+    return -1;  // No echo received
+  }
+  
+  // Calculate distance
+  int distance = duration * 0.034 / 2;
+  
+  // Validate range
+  if (distance < 2 || distance > MAX_DISTANCE) {
+    return -1;  // Invalid reading
+  }
+  
+  return distance;
+}
+
+/**
+ * Handle line following logic
+ */
+void handleLineFollowing() {
+  // Line following logic (HIGH = black line detected, LOW = white surface)
+  if (leftIRValue == LOW && rightIRValue == LOW) {
+    // Both sensors on white surface - move forward to find line
+    moveForward(DEFAULT_SPEED);
+  }
+  else if (leftIRValue == LOW && rightIRValue == HIGH) {
+    // Right sensor sees black line - turn right to follow line
+    turnRight(TURN_SPEED);
+  }
+  else if (leftIRValue == HIGH && rightIRValue == LOW) {
+    // Left sensor sees black line - turn left to follow line
+    turnLeft(TURN_SPEED);
+  }
+  else {
+    // Both sensors see black line (HIGH, HIGH) - move forward
+    moveForward(DEFAULT_SPEED);
+  }
+}
+
+/**
+ * Handle obstacle avoidance sequence
+ */
+void handleObstacleAvoidance() {
+  Serial.println("Obstacle detected! Starting avoidance sequence...");
+  
+  // Stop immediately
+  stopMotors();
+  delay(500);
+  
+  // Scan for best path
+  int bestDirection = scanForBestPath();
+  
+  if (bestDirection == 0) {
+    // No clear path - back up and try again
+    Serial.println("No clear path found. Backing up...");
+    moveBackward(OBSTACLE_SPEED);
+    delay(BACKUP_DURATION);
+    stopMotors();
+    delay(300);
+    return;
+  }
+  
+  // Execute avoidance maneuver
+  executeAvoidanceManeuver(bestDirection);
+  
+  // Return servo to center
+  scanServo.write(90);
+  delay(SCAN_DELAY);
+  
+  Serial.println("Obstacle avoidance complete.");
+}
+
+/**
+ * Scan left and right to find the best path
+ * @return -1 for left, 1 for right, 0 for no clear path
+ */
+int scanForBestPath() {
+  Serial.println("Scanning for clear path...");
+  
+  int leftDistance = 0;
+  int rightDistance = 0;
+  
+  // Scan right (0 degrees)
+  scanServo.write(0);
+  delay(SCAN_DELAY);
+  rightDistance = readUltrasonicDistance();
+  Serial.print("Right distance: ");
+  Serial.println(rightDistance);
+  
+  // Scan left (180 degrees)
+  scanServo.write(180);
+  delay(SCAN_DELAY);
+  leftDistance = readUltrasonicDistance();
+  Serial.print("Left distance: ");
+  Serial.println(leftDistance);
+  
+  // Return to center
+  scanServo.write(90);
+  delay(SCAN_DELAY);
+  
+  // Decide best direction
+  if (leftDistance > SAFE_DISTANCE && rightDistance > SAFE_DISTANCE) {
+    // Both sides clear - choose the side with more space
+    return (leftDistance > rightDistance) ? -1 : 1;
+  }
+  else if (leftDistance > SAFE_DISTANCE) {
+    return -1;  // Go left
+  }
+  else if (rightDistance > SAFE_DISTANCE) {
+    return 1;   // Go right
+  }
+  
+  return 0;  // No clear path
+}
+
+/**
+ * Execute obstacle avoidance maneuver
+ * @param direction -1 for left, 1 for right
+ */
+void executeAvoidanceManeuver(int direction) {
+  if (direction == -1) {
+    Serial.println("Avoiding obstacle - turning left");
+    // Turn left sequence
+    turnLeft(OBSTACLE_SPEED);
+    delay(TURN_DURATION);
+    stopMotors();
+    delay(200);
+    
+    // Move forward to clear obstacle
+    moveForward(OBSTACLE_SPEED);
+    delay(800);
+    stopMotors();
+    delay(200);
+    
+    // Turn right to resume original direction
+    turnRight(OBSTACLE_SPEED);
+    delay(TURN_DURATION);
+    stopMotors();
+  }
+  else if (direction == 1) {
+    Serial.println("Avoiding obstacle - turning right");
+    // Turn right sequence
+    turnRight(OBSTACLE_SPEED);
+    delay(TURN_DURATION);
+    stopMotors();
+    delay(200);
+    
+    // Move forward to clear obstacle
+    moveForward(OBSTACLE_SPEED);
+    delay(800);
+    stopMotors();
+    delay(200);
+    
+    // Turn left to resume original direction
+    turnLeft(OBSTACLE_SPEED);
+    delay(TURN_DURATION);
+    stopMotors();
+  }
+}
+
+// === Motor Control Functions ===
+
+/**
+ * Move forward at specified speed
+ */
+void moveForward(int speed) {
+  analogWrite(leftMotorEnable, speed);
+  analogWrite(rightMotorEnable, speed);
+  
+  digitalWrite(leftMotorPin1, HIGH);
+  digitalWrite(leftMotorPin2, LOW);
+  digitalWrite(rightMotorPin1, HIGH);
+  digitalWrite(rightMotorPin2, LOW);
+}
+
+/**
+ * Move backward at specified speed
+ */
+void moveBackward(int speed) {
+  analogWrite(leftMotorEnable, speed);
+  analogWrite(rightMotorEnable, speed);
+  
+  digitalWrite(leftMotorPin1, LOW);
+  digitalWrite(leftMotorPin2, HIGH);
+  digitalWrite(rightMotorPin1, LOW);
+  digitalWrite(rightMotorPin2, HIGH);
+}
+
+/**
+ * Turn left at specified speed
+ */
+void turnLeft(int speed) {
+  analogWrite(leftMotorEnable, speed);
+  analogWrite(rightMotorEnable, speed);
+  
+  digitalWrite(leftMotorPin1, LOW);    // Left motor backward
+  digitalWrite(leftMotorPin2, HIGH);
+  digitalWrite(rightMotorPin1, HIGH);  // Right motor forward
+  digitalWrite(rightMotorPin2, LOW);
+}
+
+/**
+ * Turn right at specified speed
+ */
+void turnRight(int speed) {
+  analogWrite(leftMotorEnable, speed);
+  analogWrite(rightMotorEnable, speed);
+  
+  digitalWrite(leftMotorPin1, HIGH);   // Left motor forward
+  digitalWrite(leftMotorPin2, LOW);
+  digitalWrite(rightMotorPin1, LOW);   // Right motor backward
+  digitalWrite(rightMotorPin2, HIGH);
+}
+
+/**
+ * Stop all motors
+ */
+void stopMotors() {
+  analogWrite(leftMotorEnable, 0);
+  analogWrite(rightMotorEnable, 0);
+  
+  digitalWrite(leftMotorPin1, LOW);
+  digitalWrite(leftMotorPin2, LOW);
+  digitalWrite(rightMotorPin1, LOW);
+  digitalWrite(rightMotorPin2, LOW);
+}
+
+// === Utility Functions ===
+
+/**
+ * Print current sensor values to serial monitor
+ */
+void printSensorValues() {
+  Serial.print("Distance: ");
+  Serial.print(currentDistance);
+  Serial.print(" cm | Left IR: ");
+  Serial.print(leftIRValue);
+  Serial.print(" | Right IR: ");
+  Serial.println(rightIRValue);
+}
+
+/**
+ * Emergency stop function (can be called from anywhere)
+ */
+void emergencyStop() {
+  stopMotors();
+  Serial.println("EMERGENCY STOP ACTIVATED!");
+  while(1) {
+    // Infinite loop - requires reset to continue
+    delay(1000);
+  }
+}
