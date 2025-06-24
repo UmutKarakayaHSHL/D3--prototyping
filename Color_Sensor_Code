@@ -1,0 +1,64 @@
+// TCS3200 Color Sensor Reader
+#define S0 A1
+#define S1 A2
+#define S2 A3
+#define S3 A4
+#define OUT A0
+#define LED_CTRL 13
+
+int redFreq = 0;
+int greenFreq = 0;
+int blueFreq = 0;
+
+void setup() {
+  pinMode(S0, OUTPUT);
+  pinMode(S1, OUTPUT);
+  pinMode(S2, OUTPUT);
+  pinMode(S3, OUTPUT);
+  pinMode(OUT, INPUT);
+  pinMode(LED_CTRL, OUTPUT);
+
+  digitalWrite(LED_CTRL, HIGH); // Turn on LED
+
+  // Set scaling to 20%
+  digitalWrite(S0, HIGH);
+  digitalWrite(S1, LOW);
+
+  Serial.begin(9600);
+  Serial.println("TCS3200 Color Sensor Initialized");
+}
+
+void loop() {
+  // RED
+  digitalWrite(S2, LOW);
+  digitalWrite(S3, LOW);
+  delay(100);
+  redFreq = pulseIn(OUT, LOW);
+
+  // GREEN
+  digitalWrite(S2, HIGH);
+  digitalWrite(S3, HIGH);
+  delay(100);
+  greenFreq = pulseIn(OUT, LOW);
+
+  // BLUE
+  digitalWrite(S2, LOW);
+  digitalWrite(S3, HIGH);
+  delay(100);
+  blueFreq = pulseIn(OUT, LOW);
+
+  Serial.print("R: "); Serial.print(redFreq);
+  Serial.print("  G: "); Serial.print(greenFreq);
+  Serial.print("  B: "); Serial.println(blueFreq);
+
+  // Updated detection logic with tolerance
+  if (redFreq < greenFreq * 0.8 && redFreq < blueFreq * 0.8) {
+    Serial.println("Detected Red");
+  } else if (greenFreq < redFreq * 0.8 && greenFreq < blueFreq * 0.8) {
+    Serial.println("Detected Green");
+  } else if (blueFreq < redFreq * 0.8 && blueFreq < greenFreq * 0.8) {
+    Serial.println("Detected Blue");
+  }
+
+  delay(500);
+}
