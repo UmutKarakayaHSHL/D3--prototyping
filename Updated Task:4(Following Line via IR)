@@ -3,7 +3,7 @@
 #define in1 4
 #define in2 12
 
-// Motor B - Right
+//Motor B - Right
 #define enB 5
 #define in3 6
 #define in4 7
