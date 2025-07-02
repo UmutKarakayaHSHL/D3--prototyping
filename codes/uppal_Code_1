@@ -1,0 +1,188 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{url}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+		T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+	
+	\title{Design and Implementation of a Line Following and Obstacle Avoidance Robot}
+	
+	\author{
+		\IEEEauthorblockN{MD Rafiul Islam\IEEEauthorrefmark{1}, MD Azadul Islam\IEEEauthorrefmark{1}, Umut Faruk Karakaya\IEEEauthorrefmark{1}}
+		\IEEEauthorblockA{\IEEEauthorrefmark{1}Systems Engineering and Prototyping, BSc Electronic Engineering\\
+			Hochschule Hamm-Lippstadt, Lippstadt, Germany\\
+			\{rafiul.islam, azadul.islam, umut.karakaya\}@stud.hshl.de}
+	}
+	
+	\maketitle
+	
+	\begin{abstract}
+		This paper presents the design, development, and testing of an autonomous robot that can follow a black line on a white surface and avoid obstacles detected within its path. The robot is built using Arduino and multiple sensors including infrared (IR), ultrasonic, and color sensors. The project integrates hardware prototyping, systems engineering principles, and timed behavior modeling using UPPAAL. The robot adjusts its behavior based on environmental feedback, such as light variation and battery voltage, enhancing robustness and real-world usability.
+	\end{abstract}
+	
+	\begin{IEEEkeywords}
+		Line follower robot, obstacle avoidance, Arduino, sensor fusion, autonomous system, prototyping, UPPAAL, systems engineering.
+	\end{IEEEkeywords}
+	
+	\section{Introduction}
+	Autonomous navigation systems are rapidly becoming critical in robotics. This project aims to implement a small-scale, autonomous mobile robot capable of line following and intelligent obstacle avoidance. The development follows a structured engineering approach, combining system modeling, electronic design, simulation, and real-world testing.
+	
+	\section{System Design and Engineering}
+	The foundation of the robot was based on systems engineering principles. Initially, use case and requirement diagrams were created using SysML to define the functional and non-functional aspects of the robot. These models were refined into block definition and internal block diagrams which provided a modular structure. Each module—sensing, control, and actuation—was individually designed for clear interface and responsibility.
+	
+	\begin{figure}[htbp]
+		\centerline{\includegraphics[width=0.9\linewidth]{use-case.png}}
+		\caption{SysML Use Case Diagram}
+		\label{fig:usecase}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centerline{\includegraphics[width=0.9\linewidth]{req.png}}
+		\caption{SysML Requirements Diagram}
+		\label{fig:reqs}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centerline{\includegraphics[width=0.9\linewidth]{cons.png}}
+		\caption{SysML Constraints Diagram}
+		\label{fig:constraints}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centerline{\includegraphics[width=0.9\linewidth]{act.png}}
+		\caption{SysML Activity Diagram}
+		\label{fig:activity}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centerline{\includegraphics[width=0.9\linewidth]{seq.png}}
+		\caption{SysML State Machine Diagram}
+		\label{fig:statemachine}
+	\end{figure}
+	
+	\subsection{Behavioral Modeling using UPPAAL}
+	To validate the robot's timing and safety behaviors, formal models were created using UPPAAL. These timed automata diagrams describe the interaction of sensors and actuators over time, including decision delays and critical thresholds for obstacle detection.
+	
+	\begin{figure}[htbp]
+		\centerline{\includegraphics[width=0.9\linewidth]{uppaal_diagram.png}}
+		\caption{UPPAAL model of line-following and state transition}
+		\label{fig:uppaal}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centerline{\includegraphics[width=0.9\linewidth]{uppaal_obstacle.png}}
+		\caption{UPPAAL obstacle avoidance decision automaton}
+		\label{fig:uppaal_obs}
+	\end{figure}
+	
+	\section{Prototyping and Design}
+	\subsection{Electronic Components}
+	The robot uses the following key components:
+	\begin{itemize}
+		\item Arduino Uno microcontroller
+		\item L298N motor driver
+		\item 2 IR sensors for line detection
+		\item Ultrasonic sensor for distance measurement
+		\item Servo motor for scanning obstacles
+		\item TCS3200 color sensor for identifying specific zones
+		\item 2 DC motors for driving wheels
+		\item 12V battery (with 5V regulation for logic circuits)
+	\end{itemize}
+	
+	\subsection{Virtual and Physical Prototypes}
+	Initial logic and wiring were tested using Tinkercad simulation. A physical prototype was developed on a custom chassis. The system was incrementally built and validated using Multisim for circuit design, followed by breadboard implementation and final soldering.
+	
+	\begin{figure}[htbp]
+		\centerline{\includegraphics[width=0.9\linewidth]{robot_design.png}}
+		\caption{Physical prototype of the assembled robot}
+		\label{fig:robotdesign}
+	\end{figure}
+	
+	\subsection{Hardware Assembly}
+	All components were mounted securely on the chassis. Connections were made as per schematic, considering voltage compatibility. A switch and power regulation module were added to safely deliver 12V to motors and 5V to logic.
+	
+	\section{Circuit Design}
+	\begin{figure}[htbp]
+		\centerline{\includegraphics[width=0.9\linewidth]{circuit_diagram.png}}
+		\caption{Complete circuit layout of the robot}
+		\label{fig:circuit}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centerline{\includegraphics[width=0.9\linewidth]{tinker_diagram.png}}
+		\caption{Tinkercad simulation-based wiring diagram}
+		\label{fig:tinker}
+	\end{figure}
+	
+	\begin{figure}[htbp]
+		\centerline{\includegraphics[width=0.9\linewidth]{LTSpice_Diagram.png}}
+		\caption{Voltage regulation and power distribution simulated in LTspice}
+		\label{fig:ltspice}
+	\end{figure}
+	
+	\section{Software Implementation}
+	The Arduino code integrates line following, obstacle detection, and color recognition. It uses a non-blocking loop, servo sweep logic for obstacle scanning, and conditional branching based on sensor input to control motion. Real-time feedback ensures responsiveness and robustness.
+	
+	\section{Git Usage and Collaboration}
+	Project progress was tracked using GitHub. Branches were created per feature. Each member contributed based on assigned tasks, and all commits were documented with messages.
+	
+	\noindent Project Repository: \url{https://github.com/UmutKarakayaHSHL/D3--prototyping}
+	
+	\begin{table}[ht]
+		\centering
+		\begin{tabular}{l|c}
+			\hline
+			\textbf{Team Member} & \textbf{Number of Commits} \\
+			\hline
+			MD Rafiul Islam     & 20 \\
+			MD Azadul Islam     & 20 \\
+			Umut Faruk Karakaya & 12 \\
+			\hline
+			\textbf{Total} & \textbf{52} \\
+			\hline
+		\end{tabular}
+		\caption{GitHub Commits by Team Members}
+		\label{table:commit}
+	\end{table}
+	
+	\section{Key Achievements}
+	\begin{itemize}
+		\item Developed a fully functional autonomous robot
+		\item Validated timing behavior using UPPAAL timed automata
+		\item Created reusable, modular code with real-time sensor feedback
+		\item Demonstrated robust performance under various voltage and light conditions
+		\item Successfully collaborated using GitHub with task-wise contributions
+	\end{itemize}
+	
+	\section*{Acknowledgment}
+	We thank Prof. Dr. Stefan Henkler and the Prototyping staff at HSHL for guidance throughout the project.
+	
+	\section*{References}
+	\begin{thebibliography}{00}
+		\bibitem{arduino} Arduino Documentation. \url{https://www.arduino.cc/en/Guide}
+		\bibitem{tinkercad} Tinkercad Simulation. \url{https://www.tinkercad.com}
+		\bibitem{uppaal} Uppaal Model Checker. \url{http://www.uppaal.org/}
+		\bibitem{ltspice} LTspice - Analog Circuit Simulator. \url{https://www.analog.com/en/design-center/design-tools-and-calculators/ltspice-simulator.html}
+	\end{thebibliography}
+	
+	\section*{Declaration of Originality}
+	We, the undersigned, hereby declare that this report titled *Design and Implementation of a Line Following and Obstacle Avoidance Robot* is entirely our own work. All sources and external contributions have been properly cited and acknowledged. No part of this document has been plagiarized.
+	
+	\begin{itemize}
+		\item MD Rafiul Islam
+		\item MD Azadul Islam
+		\item Umut Faruk Karakaya
+	\end{itemize}
+	
+\end{document}
